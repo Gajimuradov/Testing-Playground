@@ -19,4 +19,11 @@ test('user logs in, opens dashboard, creates request and sees it in the list', a
   await expect(page.getByRole('status')).toContainText('Заявка создана');
   await expect(page.getByText('Cannot upload contract')).toBeVisible();
   await expect(page.getByText('Legal team cannot upload signed contract files.')).toBeVisible();
+
+  await page.reload();
+
+  await expect(page.getByRole('heading', { name: 'Заявки' })).toBeVisible();
+  await expect(page.getByRole('status')).toHaveCount(0);
+  await expect(page.getByText('Cannot upload contract')).toBeVisible();
+  await expect(page.getByText('Legal team cannot upload signed contract files.')).toBeVisible();
 });

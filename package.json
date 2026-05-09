@@ -8,8 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:unit": "vitest run src/**/*.unit.test.ts",
-    "test:integration": "vitest run src/**/*.integration.test.tsx",
+    "test:unit": "vitest run unit.test.ts",
+    "test:integration": "vitest run integration.test.tsx",
     "test:e2e": "playwright test",
     "postinstall": "msw init public/ --save"
   },

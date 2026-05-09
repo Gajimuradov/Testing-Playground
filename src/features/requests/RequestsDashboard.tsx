@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { StatusBadge } from '../../components/StatusBadge';
 import { getRequests } from '../../services/api';
 import { filterRequests, sortRequestsByPriority } from './requestUtils';
-import type { RequestStatus, SupportRequest } from './types';
+import type { RequestPriority, RequestStatus, SupportRequest } from './types';
 
 type LoadState = 'idle' | 'loading' | 'success' | 'error';
 
@@ -24,15 +24,91 @@ const priorityLabels: Record<SupportRequest['priority'], string> = {
   high: 'Высокий',
 };
 
+const testLevels = [
+  {
+    title: 'Unit tests',
+    target: 'Чистые правила без UI',
+    description:
+      'Показывают, что бизнес-логика проверяется отдельно от React: схемы валидации принимают корректные данные и отклоняют ошибки, а утилиты фильтруют и сортируют заявки предсказуемо.',
+    checks: ['loginSchema и requestSchema', 'filterRequests', 'sortRequestsByPriority'],
+    command: 'npm run test:unit',
+    files: 'src/**/*.unit.test.ts',
+  },
+  {
+    title: 'Integration tests',
+    target: 'Компоненты вместе с API',
+    description:
+      'Показывают, как пользователь взаимодействует с формами и dashboard: вводит данные, видит validation errors, loading, success, empty и server error. Сеть при этом мокается через MSW.',
+    checks: ['LoginPage', 'CreateRequestPage', 'RequestsDashboard'],
+    command: 'npm run test:integration',
+    files: 'src/**/*.integration.test.tsx',
+  },
+  {
+    title: 'E2E tests',
+    target: 'Полный путь в браузере',
+    description:
+      'Показывают, что приложение работает как единый продукт: пользователь входит, открывает dashboard, создает заявку, перезагружает страницу и снова видит созданную заявку без старого flash-сообщения.',
+    checks: ['login', 'create request', 'reload persistence'],
+    command: 'npm run test:e2e',
+    files: 'tests/e2e/app.spec.ts',
+  },
+];
+
+function formatRelativeAge(date: string) {
+  const createdAt = new Date(date).getTime();
+  const now = Date.now();
+  const days = Math.max(0, Math.floor((now - createdAt) / 86_400_000));
+
+  if (days === 0) {
+    return 'сегодня';
+  }
+
+  if (days === 1) {
+    return '1 день назад';
+  }
+
+  if (days > 1 && days < 5) {
+    return `${days} дня назад`;
+  }
+
+  return `${days} дней назад`;
+}
+
 export function RequestsDashboard() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [requests, setRequests] = useState<SupportRequest[]>([]);
   const [status, setStatus] = useState<RequestStatus | 'all'>('all');
   const [query, setQuery] = useState('');
   const [loadState, setLoadState] = useState<LoadState>('idle');
   const [error, setError] = useState('');
   const [forceError, setForceError] = useState(false);
-  const flash = (location.state as LocationState | null)?.flash;
+  const [flash, setFlash] = useState(() => (location.state as LocationState | null)?.flash ?? '');
+
+  useEffect(() => {
+    const routeFlash = (location.state as LocationState | null)?.flash;
+
+    if (!routeFlash) {
+      return;
+    }
+
+    setFlash(routeFlash);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate]);
+
+  useEffect(() => {
+    if (!flash) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setFlash('');
+    }, 3_000);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [flash]);
 
   useEffect(() => {
     let ignore = false;
@@ -66,6 +142,31 @@ export function RequestsDashboard() {
   const visibleRequests = useMemo(() => {
     return sortRequestsByPriority(filterRequests(requests, { status, query }));
   }, [query, requests, status]);
+
+  const dashboardStats = useMemo(() => {
+    const statusCounts: Record<RequestStatus, number> = {
+      open: 0,
+      'in-progress': 0,
+      closed: 0,
+    };
+    const priorityCounts: Record<RequestPriority, number> = {
+      high: 0,
+      medium: 0,
+      low: 0,
+    };
+
+    for (const request of requests) {
+      statusCounts[request.status] += 1;
+      priorityCounts[request.priority] += 1;
+    }
+
+    return {
+      total: requests.length,
+      visible: visibleRequests.length,
+      statusCounts,
+      priorityCounts,
+    };
+  }, [requests, visibleRequests.length]);
 
   return (
     <main className="page-shell">
@@ -109,9 +210,68 @@ export function RequestsDashboard() {
         </div>
 
         <button className="button button--secondary" type="button" onClick={() => setForceError((value) => !value)}>
-          {forceError ? 'Показать список' : 'Показать ошибку API'}
+          {forceError ? 'Вернуть список' : 'Сымитировать ошибку API'}
         </button>
       </section>
+
+      {loadState === 'success' ? (
+        <section className="testing-guide" aria-labelledby="testing-guide-title">
+          <div className="testing-guide__intro">
+            <div>
+              <p className="eyebrow">Testing playground</p>
+              <h2 id="testing-guide-title">Как этот проект демонстрирует frontend-тестирование</h2>
+              <p>
+                Это не полноценная helpdesk-система. Заявки здесь нужны как понятный пользовательский сценарий, на котором видно,
+                где заканчиваются unit-тесты, где начинаются integration-тесты и что имеет смысл проверять через настоящий браузер.
+              </p>
+            </div>
+
+            <dl className="testing-facts" aria-label="Сводка demo-состояния">
+              <div>
+                <dt>Mock API</dt>
+                <dd>MSW handlers: login, list, create, error</dd>
+              </div>
+              <div>
+                <dt>UI states</dt>
+                <dd>loading, validation, success, empty, error</dd>
+              </div>
+              <div>
+                <dt>Reload case</dt>
+                <dd>созданная заявка сохраняется в mock storage</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div className="testing-levels">
+            {testLevels.map((level) => (
+              <article className="testing-level" key={level.title}>
+                <div className="testing-level__header">
+                  <strong>{level.title}</strong>
+                  <span>{level.target}</span>
+                </div>
+                <p>{level.description}</p>
+                <ul>
+                  {level.checks.map((check) => (
+                    <li key={check}>{check}</li>
+                  ))}
+                </ul>
+                <div className="testing-level__meta">
+                  <code>{level.command}</code>
+                  <code>{level.files}</code>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="coverage-strip" aria-label="Что сейчас видно на dashboard">
+            <span>Всего: {dashboardStats.total}</span>
+            <span>Показано: {dashboardStats.visible}</span>
+            <span>Открытые: {dashboardStats.statusCounts.open}</span>
+            <span>В работе: {dashboardStats.statusCounts['in-progress']}</span>
+            <span>Высокий приоритет: {dashboardStats.priorityCounts.high}</span>
+          </div>
+        </section>
+      ) : null}
 
       {loadState === 'loading' ? (
         <section className="panel state-panel" aria-live="polite">
@@ -137,28 +297,47 @@ export function RequestsDashboard() {
       ) : null}
 
       {loadState === 'success' && visibleRequests.length > 0 ? (
-        <section className="request-list" aria-label="Список заявок">
-          {visibleRequests.map((request) => (
-            <article className="panel request-card" key={request.id}>
-              <div className="request-card__header">
-                <div>
-                  <h2>{request.title}</h2>
-                  <p>{request.description}</p>
+        <section aria-label="Список заявок">
+          <div className="list-heading">
+            <div>
+              <h2>Очередь заявок</h2>
+              <p>
+                Показано {visibleRequests.length} из {requests.length}; сортировка: высокий приоритет и новые выше.
+              </p>
+            </div>
+          </div>
+
+          <div className="request-list">
+            {visibleRequests.map((request) => (
+              <article className="panel request-card" key={request.id}>
+                <div className="request-card__header">
+                  <div>
+                    <h3>{request.title}</h3>
+                    <p>{request.description}</p>
+                  </div>
+                  <StatusBadge status={request.status} />
                 </div>
-                <StatusBadge status={request.status} />
-              </div>
-              <dl className="request-meta">
-                <div>
-                  <dt>Приоритет</dt>
-                  <dd>{priorityLabels[request.priority]}</dd>
+                <dl className="request-meta">
+                  <div>
+                    <dt>Приоритет</dt>
+                    <dd>{priorityLabels[request.priority]}</dd>
+                  </div>
+                  <div>
+                    <dt>Создана</dt>
+                    <dd>{new Intl.DateTimeFormat('ru-RU').format(new Date(request.createdAt))}</dd>
+                  </div>
+                  <div>
+                    <dt>Возраст</dt>
+                    <dd>{formatRelativeAge(request.createdAt)}</dd>
+                  </div>
+                </dl>
+                <div className="request-card__footer">
+                  <span>{request.status === 'open' ? 'Ожидает первого действия' : 'Есть процесс обработки'}</span>
+                  <span>{request.priority === 'high' ? 'Контроль SLA' : 'Обычный контроль'}</span>
                 </div>
-                <div>
-                  <dt>Создана</dt>
-                  <dd>{new Intl.DateTimeFormat('ru-RU').format(new Date(request.createdAt))}</dd>
-                </div>
-              </dl>
-            </article>
-          ))}
+              </article>
+            ))}
+          </div>
         </section>
       ) : null}
     </main>
