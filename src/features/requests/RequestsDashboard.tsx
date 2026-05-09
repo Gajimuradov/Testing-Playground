@@ -172,8 +172,11 @@ export function RequestsDashboard() {
     <main className="page-shell">
       <header className="page-header">
         <div>
-          <p className="eyebrow">Requests dashboard</p>
+          <p className="eyebrow">Frontend testing demo</p>
           <h1>Заявки</h1>
+          <p>
+            Один рабочий сценарий показывает разные уровни тестирования: от чистых функций до полного browser journey.
+          </p>
         </div>
         <Link className="button button--primary" to="/requests/new">
           Создать заявку

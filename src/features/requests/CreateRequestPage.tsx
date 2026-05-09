@@ -50,66 +50,79 @@ export function CreateRequestPage() {
         <div>
           <p className="eyebrow">Новая заявка</p>
           <h1>Создать заявку</h1>
+          <p>Форма демонстрирует client-side validation, POST через MSW и переход обратно на dashboard после успешного ответа.</p>
         </div>
         <Link className="button button--secondary" to="/requests">
           К списку
         </Link>
       </header>
 
-      <section className="panel form-panel" aria-labelledby="request-form-title">
-        <h2 id="request-form-title">Детали обращения</h2>
-        <form className="form" onSubmit={onSubmit} noValidate>
-          <div className="field">
-            <label htmlFor="title">Название</label>
-            <input
-              id="title"
-              type="text"
-              aria-invalid={Boolean(errors.title)}
-              aria-describedby={errors.title ? 'title-error' : undefined}
-              {...register('title')}
-            />
-            <FieldError id="title-error" message={errors.title?.message} />
-          </div>
-
-          <div className="field">
-            <label htmlFor="description">Описание</label>
-            <textarea
-              id="description"
-              rows={5}
-              aria-invalid={Boolean(errors.description)}
-              aria-describedby={errors.description ? 'description-error' : undefined}
-              {...register('description')}
-            />
-            <FieldError id="description-error" message={errors.description?.message} />
-          </div>
-
-          <div className="field">
-            <label htmlFor="priority">Приоритет</label>
-            <select id="priority" aria-invalid={Boolean(errors.priority)} {...register('priority')}>
-              <option value="low">Низкий</option>
-              <option value="medium">Средний</option>
-              <option value="high">Высокий</option>
-            </select>
-            <FieldError id="priority-error" message={errors.priority?.message} />
-          </div>
-
-          {apiError ? (
-            <div className="alert alert--error" role="alert">
-              {apiError}
+      <div className="form-layout">
+        <section className="panel form-panel" aria-labelledby="request-form-title">
+          <h2 id="request-form-title">Детали обращения</h2>
+          <form className="form" onSubmit={onSubmit} noValidate>
+            <div className="field">
+              <label htmlFor="title">Название</label>
+              <input
+                id="title"
+                type="text"
+                aria-invalid={Boolean(errors.title)}
+                aria-describedby={errors.title ? 'title-error' : undefined}
+                {...register('title')}
+              />
+              <FieldError id="title-error" message={errors.title?.message} />
             </div>
-          ) : null}
 
-          {submitState === 'success' ? (
-            <div className="alert alert--success" role="status">
-              Заявка создана
+            <div className="field">
+              <label htmlFor="description">Описание</label>
+              <textarea
+                id="description"
+                rows={5}
+                aria-invalid={Boolean(errors.description)}
+                aria-describedby={errors.description ? 'description-error' : undefined}
+                {...register('description')}
+              />
+              <FieldError id="description-error" message={errors.description?.message} />
             </div>
-          ) : null}
 
-          <button className="button button--primary" type="submit" disabled={submitState === 'loading'}>
-            {submitState === 'loading' ? 'Создаем...' : 'Создать'}
-          </button>
-        </form>
-      </section>
+            <div className="field">
+              <label htmlFor="priority">Приоритет</label>
+              <select id="priority" aria-invalid={Boolean(errors.priority)} {...register('priority')}>
+                <option value="low">Низкий</option>
+                <option value="medium">Средний</option>
+                <option value="high">Высокий</option>
+              </select>
+              <FieldError id="priority-error" message={errors.priority?.message} />
+            </div>
+
+            {apiError ? (
+              <div className="alert alert--error" role="alert">
+                {apiError}
+              </div>
+            ) : null}
+
+            {submitState === 'success' ? (
+              <div className="alert alert--success" role="status">
+                Заявка создана
+              </div>
+            ) : null}
+
+            <button className="button button--primary" type="submit" disabled={submitState === 'loading'}>
+              {submitState === 'loading' ? 'Создаем...' : 'Создать'}
+            </button>
+          </form>
+        </section>
+
+        <aside className="panel test-note-panel" aria-label="Что проверяют тесты формы">
+          <h2>Что здесь проверяется</h2>
+          <ul>
+            <li>короткий title и description показывают ошибки Zod;</li>
+            <li>submit отправляет POST /requests через MSW;</li>
+            <li>title со словом fail возвращает server error;</li>
+            <li>успешная заявка сохраняется и остается после reload.</li>
+          </ul>
+        </aside>
+      </div>
     </main>
   );
 }
